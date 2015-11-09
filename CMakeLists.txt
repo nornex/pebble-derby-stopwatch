@@ -11,9 +11,19 @@ set(SOURCE_FILES
     build/chalk/src/resource_ids.auto.h
     build/chalk/appinfo.auto.c
     src/basics.cpp
-        src/pebble-cpp/pebble-api.hpp
-        src/pebble-cpp/malloc.cpp
-        src/pebble-cpp/pebble.cpp
-        src/pebble-cpp/pebble.hpp)
+        src/pebble-cpp/pebble-sdk.hpp
+    src/pebble-cpp/malloc.cpp
+    src/pebble-cpp/pebble.cpp
+    src/pebble-cpp/pebble.hpp src/pebble-cpp/window.hpp src/pebble-cpp/layer.hpp)
+
+include_directories(
+    /home/matt/code/pebble-basic/PebbleSDK-3.6/Pebble/chalk/include
+    /home/matt/code/PebbleSDK-3.6/Pebble/chalk/include
+    /home/matt/code/pebble-basic/build
+    /home/matt/code/pebble-basic
+    /home/matt/code/pebble-basic/build/src
+    /home/matt/code/pebble-basic/src
+    /home/matt/code/pebble-basic/build/chalk
+    /home/matt/code/pebble-basic/chalk)
 
 add_executable(pebble_cpp ${SOURCE_FILES})

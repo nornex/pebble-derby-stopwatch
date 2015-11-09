@@ -1,7 +1,7 @@
 #ifndef PEBBLE_CPP_H
 #define PEBBLE_CPP_H
 
-#include "pebble-api.hpp"
+#include "pebble-sdk.hpp"
 
 #include <functional>
 #include <memory>
@@ -13,206 +13,226 @@
     return Prefix ## MethodName(WrappedObject, std::forward<Args>(args)...); \
   }
 
-template<typename PebbleAppT> class App;
+#define WINDOW_PROXY_METHOD(R, M) PROXY_METHOD(R, M, window_, window_)
 
-class CPPWindow {
- public:
-  CPPWindow();
-  explicit CPPWindow(Window *window);
+namespace pebble
+{
+    template<typename PebbleAppT> class App;
 
-  ~CPPWindow();
+    class UiWindow
+    {
+    public:
+        UiWindow();
 
-  #define WINDOW_PROXY_METHOD(R, M) PROXY_METHOD(R, M, window_, window_)
+        explicit UiWindow(Window *window);
 
-  void set_window_handlers(
-      WindowHandler load,
-      WindowHandler unload = nullptr,
-      WindowHandler appear = nullptr,
-      WindowHandler disappear = nullptr);
+        ~UiWindow();
 
-  template<typename PebbleAppT, void (PebbleAppT::*Method)(ClickRecognizerRef)>
-  static void single_click_subscribe(ButtonId button) {
-    auto handler = &App<PebbleAppT>::template click_handler<Method>;
-    window_single_click_subscribe(button, static_cast<ClickHandler>(handler));
-  }
+        void set_window_handlers(
+            WindowHandler load,
+            WindowHandler unload = nullptr,
+            WindowHandler appear = nullptr,
+            WindowHandler disappear = nullptr);
 
-  // push(animated);
-  WINDOW_PROXY_METHOD(void, stack_push);
+        template<typename PebbleAppT, void (PebbleAppT::*Method)(ClickRecognizerRef)>
+        static void single_click_subscribe(ButtonId button)
+        {
+            auto handler = &App<PebbleAppT>::template click_handler<Method>;
+            window_single_click_subscribe(button, static_cast<ClickHandler>(handler));
+        }
 
-  // set_click_config_provider(ClickConfigProvider provider);
-  // set_click_config_provider_with_context(ClickConfigProvider provider, void* ctx);
-  WINDOW_PROXY_METHOD(void, set_click_config_provider);
-  WINDOW_PROXY_METHOD(void, set_click_config_provider_with_context);
+        // push(animated);
+        WINDOW_PROXY_METHOD(void, stack_push);
 
-  // Layer* get_root_layer();
-  WINDOW_PROXY_METHOD(Layer*, get_root_layer);
+        // set_click_config_provider(ClickConfigProvider provider);
+        // set_click_config_provider_with_context(ClickConfigProvider provider, void* ctx);
+        WINDOW_PROXY_METHOD(void, set_click_config_provider);
 
-  // bool get_fullscreen();
-  WINDOW_PROXY_METHOD(bool, get_fullscreen);
+        WINDOW_PROXY_METHOD(void, set_click_config_provider_with_context);
 
-  template<typename UserData>
-  UserData* get_user_data() {
-    return (UserData*)window_get_user_data(window_);
-  }
+        // Layer* get_root_layer();
+        WINDOW_PROXY_METHOD(Layer*, get_root_layer);
 
-  // bool is_loaded();
-  WINDOW_PROXY_METHOD(bool, is_loaded);
+        // bool get_fullscreen();
+        WINDOW_PROXY_METHOD(bool, get_fullscreen);
 
-  // void set_background_color(GColor color);
-  WINDOW_PROXY_METHOD(void, set_background_color);
+        template<typename UserData>
+        UserData *get_user_data()
+        {
+            return (UserData *) window_get_user_data(window_);
+        }
 
-  // void set_fullscreen(bool enabled);
-  WINDOW_PROXY_METHOD(void, set_fullscreen);
+        // bool is_loaded();
+        WINDOW_PROXY_METHOD(bool, is_loaded);
 
-  // void set_status_bar_icon(const GBitmap* icon);
-  WINDOW_PROXY_METHOD(void, set_status_bar_icon);
+        // void set_background_color(GColor color);
+        WINDOW_PROXY_METHOD(void, set_background_color);
 
- private:
-  Window *window_;
-  bool window_owned_;
-};
+        // void set_fullscreen(bool enabled);
+        WINDOW_PROXY_METHOD(void, set_fullscreen);
 
-class CPPLayer {
- public:
-  CPPLayer();
-  explicit CPPLayer(Layer *layer);
-  ~CPPLayer();
+        // void set_status_bar_icon(const GBitmap* icon);
+        WINDOW_PROXY_METHOD(void, set_status_bar_icon);
 
-  #define LAYER_PROXY_METHOD(R, M) PROXY_METHOD(R, M, layer_, layer_)
+    private:
+        Window *window_;
+        bool window_owned_;
+    };
 
-  void add_child(CPPLayer &layer);
+    class CPPLayer
+    {
+    public:
+        CPPLayer();
 
-  // GRect get_bounds();
-  LAYER_PROXY_METHOD(GRect, get_bounds);
+        explicit CPPLayer(Layer *layer);
 
-  // void set_bounds(GRect);
-  LAYER_PROXY_METHOD(void, set_bounds);
+        ~CPPLayer();
 
-  // bool get_clips();
-  LAYER_PROXY_METHOD(bool, get_clips);
+#define LAYER_PROXY_METHOD(R, M) PROXY_METHOD(R, M, layer_, layer_)
 
-  // void get_clips(bool);
-  LAYER_PROXY_METHOD(void, set_clips);
+        void add_child(CPPLayer &layer);
 
-  // GRect get_frame();
-  LAYER_PROXY_METHOD(GRect, get_frame);
+        // GRect get_bounds();
+        LAYER_PROXY_METHOD(GRect, get_bounds);
 
-  // void set_frame(GRect);
-  LAYER_PROXY_METHOD(void, set_frame);
+        // void set_bounds(GRect);
+        LAYER_PROXY_METHOD(void, set_bounds);
 
-  // bool get_hidden();
-  LAYER_PROXY_METHOD(bool, get_hidden);
+        // bool get_clips();
+        LAYER_PROXY_METHOD(bool, get_clips);
 
-  // void set_hidden(bool);
-  LAYER_PROXY_METHOD(void, set_hidden);
+        // void get_clips(bool);
+        LAYER_PROXY_METHOD(void, set_clips);
 
-  // Window* get_window();
-  LAYER_PROXY_METHOD(Window*, get_window);
+        // GRect get_frame();
+        LAYER_PROXY_METHOD(GRect, get_frame);
 
-  // void mark_dirty();
-  LAYER_PROXY_METHOD(void, mark_dirty);
+        // void set_frame(GRect);
+        LAYER_PROXY_METHOD(void, set_frame);
 
- protected:
-  Layer *layer_;
-  bool layer_owned_;
-};
+        // bool get_hidden();
+        LAYER_PROXY_METHOD(bool, get_hidden);
 
-class CPPTextLayer : public CPPLayer {
- public:
-  explicit CPPTextLayer(int16_t x, int16_t y, int16_t w, int16_t h);
+        // void set_hidden(bool);
+        LAYER_PROXY_METHOD(void, set_hidden);
 
-  #define TEXT_LAYER_PROXY_METHOD(R, M) PROXY_METHOD(R, M, text_layer_, text_layer_)
+        // Window* get_window();
+        LAYER_PROXY_METHOD(Window*, get_window);
 
-  // void set_text_alignment(GTextAlignment);
-  TEXT_LAYER_PROXY_METHOD(void, set_text_alignment);
+        // void mark_dirty();
+        LAYER_PROXY_METHOD(void, mark_dirty);
 
-  // GSize get_content_size();
-  TEXT_LAYER_PROXY_METHOD(GSize, get_content_size);
+    protected:
+        Layer *layer_;
+        bool layer_owned_;
+    };
 
-  // void set_size(GSize max_size);
-  TEXT_LAYER_PROXY_METHOD(void, set_size);
+    class CPPTextLayer : public CPPLayer
+    {
+    public:
+        explicit CPPTextLayer(int16_t x, int16_t y, int16_t w, int16_t h);
 
-  // const char* get_text();
-  TEXT_LAYER_PROXY_METHOD(const char*, get_text);
+#define TEXT_LAYER_PROXY_METHOD(R, M) PROXY_METHOD(R, M, text_layer_, text_layer_)
 
-  // void set_text(char*);
-  TEXT_LAYER_PROXY_METHOD(void, set_text);
+        // void set_text_alignment(GTextAlignment);
+        TEXT_LAYER_PROXY_METHOD(void, set_text_alignment);
 
-  // void set_background_color(GColor);
-  TEXT_LAYER_PROXY_METHOD(void, set_background_color);
+        // GSize get_content_size();
+        TEXT_LAYER_PROXY_METHOD(GSize, get_content_size);
 
-  // void set_text_color(GColor);
-  TEXT_LAYER_PROXY_METHOD(void, set_text_color);
+        // void set_size(GSize max_size);
+        TEXT_LAYER_PROXY_METHOD(void, set_size);
 
-  // void set_font(GFont);
-  TEXT_LAYER_PROXY_METHOD(void, set_font);
+        // const char* get_text();
+        TEXT_LAYER_PROXY_METHOD(const char*, get_text);
 
-  // void set_overflow_mode(GTextOverflowMode);
-  TEXT_LAYER_PROXY_METHOD(void, set_overflow_mode);
+        // void set_text(char*);
+        TEXT_LAYER_PROXY_METHOD(void, set_text);
 
- private:
-  TextLayer *text_layer_;
-};
+        // void set_background_color(GColor);
+        TEXT_LAYER_PROXY_METHOD(void, set_background_color);
 
-class CPPBitmapLayer : public CPPLayer {
-  public:
-    GBitmap *image_bitmap_;
+        // void set_text_color(GColor);
+        TEXT_LAYER_PROXY_METHOD(void, set_text_color);
 
-    explicit CPPBitmapLayer(int16_t x, int16_t y, int16_t w, int16_t h, uint32_t resource_id);
+        // void set_font(GFont);
+        TEXT_LAYER_PROXY_METHOD(void, set_font);
 
-    #define BITMAP_LAYER_PROXY_METHOD(R, M) PROXY_METHOD(R, M, bitmap_layer_, bitmap_layer_)
+        // void set_overflow_mode(GTextOverflowMode);
+        TEXT_LAYER_PROXY_METHOD(void, set_overflow_mode);
 
-    // const GBitmap* get_bitmap()
-    BITMAP_LAYER_PROXY_METHOD(const GBitmap*, get_bitmap);
+    private:
+        TextLayer *text_layer_;
+    };
 
-    // void set_bitmap(const GBitmap*)
-    BITMAP_LAYER_PROXY_METHOD(void, set_bitmap)
+    class CPPBitmapLayer : public CPPLayer
+    {
+    public:
+        GBitmap *image_bitmap_;
 
-    // void set_alignment(GAlign)
-    BITMAP_LAYER_PROXY_METHOD(void, set_alignment)
+        explicit CPPBitmapLayer(int16_t x, int16_t y, int16_t w, int16_t h, uint32_t resource_id);
 
-    // void set_background_color(GColor)
-    BITMAP_LAYER_PROXY_METHOD(void, set_background_color)
+#define BITMAP_LAYER_PROXY_METHOD(R, M) PROXY_METHOD(R, M, bitmap_layer_, bitmap_layer_)
 
-    //void set_compositing_mode(GCompOp)
-    BITMAP_LAYER_PROXY_METHOD(void, set_compositing_mode)
+        // const GBitmap* get_bitmap()
+        BITMAP_LAYER_PROXY_METHOD(const GBitmap*, get_bitmap);
 
-  private:
-    BitmapLayer *bitmap_layer_;
-};
+        // void set_bitmap(const GBitmap*)
+        BITMAP_LAYER_PROXY_METHOD(void, set_bitmap)
 
-template<typename PebbleAppT>
-class App {
- public:
-  explicit App(bool animated = true) {
-    root_window_.set_window_handlers(
-        &App<PebbleAppT>::window_load, &App<PebbleAppT>::window_unload);
-    root_window_.stack_push(animated);
-  }
+        // void set_alignment(GAlign)
+        BITMAP_LAYER_PROXY_METHOD(void, set_alignment)
 
-  static void window_load(Window *window) {
-    app_.window_load(window);
-  }
+        // void set_background_color(GColor)
+        BITMAP_LAYER_PROXY_METHOD(void, set_background_color)
 
-  static void window_unload(Window *window) {
-    app_.window_unload(window);
-  }
+        //void set_compositing_mode(GCompOp)
+        BITMAP_LAYER_PROXY_METHOD(void, set_compositing_mode)
 
-  static void click_config_provider(void* ctx) {
-    app_.click_config_provider(ctx);
-  }
+    private:
+        BitmapLayer *bitmap_layer_;
+    };
 
-  template<void (PebbleAppT::*Method)(ClickRecognizerRef)>
-  static void click_handler(ClickRecognizerRef rec, void* context) {
-    (app_.*Method)(rec);
-  }
+    template<typename PebbleAppT>
+    class App
+    {
+    public:
+        explicit App(bool animated = true)
+        {
+            root_window_.set_window_handlers(
+                    &App<PebbleAppT>::window_load, &App<PebbleAppT>::window_unload);
+            root_window_.stack_push(animated);
+        }
 
- private:
-  CPPWindow root_window_;
-  static PebbleAppT app_;
-};
+        static void window_load(Window *window)
+        {
+            app_.window_load(window);
+        }
 
-template<typename PebbleAppT>
-PebbleAppT App<PebbleAppT>::app_;
+        static void window_unload(Window *window)
+        {
+            app_.window_unload(window);
+        }
+
+        static void click_config_provider(void *ctx)
+        {
+            app_.click_config_provider(ctx);
+        }
+
+        template<void (PebbleAppT::*Method)(ClickRecognizerRef)>
+        static void click_handler(ClickRecognizerRef rec, void *context)
+        {
+            (app_.*Method)(rec);
+        }
+
+    private:
+        UiWindow root_window_;
+        static PebbleAppT app_;
+    };
+
+    template<typename PebbleAppT>
+    PebbleAppT App<PebbleAppT>::app_;
+
+}
 
 #endif // PEBBLE_CPP_H

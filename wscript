@@ -20,9 +20,9 @@ def configure(ctx):
     ctx.load('pebble_sdk')
     ctx.load('g++')
 
-    print '\n-----------------------------------------------------------------------'
-    print 'CPP Default environment'
-    print '\n' + str(ctx.env)
+    #print '\n-----------------------------------------------------------------------'
+    #print 'CPP Default environment'
+    #print '\n' + str(ctx.env)
 
     base_env = dict(ctx.env)
 
@@ -33,7 +33,7 @@ def configure(ctx):
 
         env.CXX = CROSS_COMPILE_PREFIX + 'g++'
 
-        env.CXXFLAGS = list(ctx.env.CFLAGS)
+        env.CXXFLAGS = list(base_env['CFLAGS'])
         env.CXXFLAGS.remove('-std=c99')
         env.CXXFLAGS.extend(['-std=c++11', '-fPIE', '-fno-unwind-tables', '-fno-exceptions'])
 
@@ -44,9 +44,9 @@ def build(ctx):
     for p in ctx.env.TARGET_PLATFORMS:
 
         ctx.set_env(ctx.all_envs[p])
-        print '\n-----------------------------------------------------------------------'
-        print '%s' % p
-        print '\n' + str(ctx.env)
+        #print '\n-----------------------------------------------------------------------'
+        #print '%s' % p
+        #print '\n' + str(ctx.env)
         #print '\n' + str(ctx.all_envs[p])
 
         ctx.set_group(ctx.env.PLATFORM_NAME)
