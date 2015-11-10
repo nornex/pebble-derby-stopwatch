@@ -4,7 +4,7 @@ Basic stop watch for roller derby timings.
 
 ## Licence
 
-You can check out the full license [here](https://github.com/nornex/pebble-derby-stopwatch/blob/master/LICENCE)
+You can check out the full license [here](https://github.com/nornex/pebble-derby-stopwatch/blob/master/LICENSE)
 
 This project is licensed under the terms of the **MIT** license.
 

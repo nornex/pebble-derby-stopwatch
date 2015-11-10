@@ -9,116 +9,58 @@
 
 #include "pebble-sdk.hpp"
 #include "layer.hpp"
+#include "optional.hpp"
 
 namespace pebble
 {
-    enum class Animate : bool
-    {
-        SlideIn = true,
-        None = false
-    };
-
     class Window
     {
-    private:
-
-        Window()
-        :
-            window_(sdk::window_create()),
-            owned_(true)
-        {
-        }
-
-        Window(sdk::Window* window)
-        :
-            window_(window),
-            owned_(false)
-        {
-        }
-
-        //Window(const Window&) = delete;
-
     public:
+        /// Move constructor for a window, takes ownership of the object if the original also had ownership.
+        Window(Window&& window);
 
-        Window(Window&& window)
-        :
-            window_(window.sdk_handle()),
-            owned_(window.owned_),
-            layer_(window.layer_)
-        {
+        /// Destructor, will free if underlying SDK window is owned by this object
+        ~Window();
 
-            window.owned_ = false;
-        }
+        Layer& root_layer();
 
-        ~Window()
-        {
-            if (owned_) window_destroy(window_);
-        }
-
-        Layer root_layer()
-        {
-            if (layer_ == nullptr)
-            {
-                layer_ = window_get_root_layer(window_);
-            }
-
-            return Layer(layer_);
-        }
-
-        sdk::Window* sdk_handle() { return window_; }
+        sdk::Window* sdk_handle();
 
         template <class THandler>
-        static Window CreateWithHandler()
-        {
-            Window window;
-            Handler<THandler>::ForWindow(window);
-            return window;
-        }
+        static Window CreateWithHandler();
 
     private:
+        Window();
+
+        Window(sdk::Window* window);
+
+        Window(const Window&) = delete;
+
         sdk::Window* window_;
         bool owned_;
 
-        sdk::Layer* layer_ = nullptr;
+        util::Optional<Layer> layer_;
+        void* handler_ = nullptr;
 
         template <class THandler>
         class Handler
         {
             friend class Window;
 
-            static void ForWindow(Window& window)
-            {
-                window_set_window_handlers(
-                    window.sdk_handle(),
-                    (WindowHandlers) {
-                        .load =         &Load,
-                        .appear =       &Appear,
-                        .disappear =    &Disappear,
-                        .unload =       &Unload
-                    }
-                );
-            }
+            static void ForWindow(Window& window);
 
-            static void Load(sdk::Window* sdk_window)
-            {
-                Window window(sdk_window);
-                THandler::Load(window);
-            }
+            static void Load(sdk::Window* sdk_window);
+            static void Unload(sdk::Window* sdk_window);
+            static void Appear(sdk::Window* sdk_window);
+            static void Disappear(sdk::Window* window);
 
-            static void Unload(sdk::Window* sdk_window)
-            {
-                Window window(sdk_window);
-                THandler::Unload(window);
-            }
-
-            static void Appear(sdk::Window* window)
-            {
-            }
-
-            static void Disappear(sdk::Window* window)
-            {
-            }
         };
+    };
+
+    enum class Animate : bool
+    {
+        SlideIn = true,
+        None = false
     };
 
     class WindowStack
@@ -130,6 +72,19 @@ namespace pebble
         {
         }
 
+        Window* Find(sdk::Window* window)
+        {
+            Window** current = next_;
+            do
+            {
+                current--;
+                if (current < stack_) return nullptr;
+            }
+            while ((*current)->sdk_handle() != window);
+
+            return *current;
+        }
+
         void Push(Window& window, Animate animated)
         {
             if (next_ > stack_ + sizeof(stack_))
@@ -138,10 +93,10 @@ namespace pebble
                 return;
             }
 
-            window_stack_push(window.sdk_handle(), static_cast<bool>(animated));
-
             *next_ = &window;
             next_++;
+
+            window_stack_push(window.sdk_handle(), static_cast<bool>(animated));
         }
 
     private:
@@ -186,5 +141,7 @@ namespace pebble
         static Application* singleton;
     };
 }
+
+#include "window.inline.hpp"
 
 #endif //PEBBLE_CPP_WINDOW_HPP

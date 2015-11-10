@@ -11,10 +11,13 @@ set(SOURCE_FILES
     build/chalk/src/resource_ids.auto.h
     build/chalk/appinfo.auto.c
     src/basics.cpp
-        src/pebble-cpp/pebble-sdk.hpp
+    src/pebble-cpp/pebble-sdk.hpp
     src/pebble-cpp/malloc.cpp
     src/pebble-cpp/pebble.cpp
-    src/pebble-cpp/pebble.hpp src/pebble-cpp/window.hpp src/pebble-cpp/layer.hpp)
+    src/pebble-cpp/pebble.hpp
+    src/pebble-cpp/window.hpp
+    src/pebble-cpp/layer.hpp
+    src/pebble-cpp/window.inline.hpp src/pebble-cpp/rect.hpp src/pebble-cpp/optional.hpp)
 
 include_directories(
     /home/matt/code/pebble-basic/PebbleSDK-3.6/Pebble/chalk/include

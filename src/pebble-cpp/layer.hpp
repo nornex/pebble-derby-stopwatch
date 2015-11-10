@@ -6,39 +6,10 @@
 #define PEBBLE_CPP_LAYER_HPP
 
 #include "pebble-sdk.hpp"
+#include "rect.hpp"
 
 namespace pebble
 {
-
-    class Rect
-    {
-    public:
-        Rect(sdk::GRect bounds)
-            : bounds_(bounds)
-        {
-        }
-
-        Rect(int16_t x, int16_t y, int16_t width, int16_t height)
-        :
-            bounds_(sdk::GRect{
-                .origin = (sdk::GPoint) { .x = x, .y = y },
-                .size = (sdk::GSize) { .w = width, .h = height }
-            })
-        {
-        }
-
-        int16_t x() const { return bounds_.origin.x; }
-        int16_t y() const { return bounds_.origin.y; }
-        int16_t width() const { return bounds_.size.w; }
-        int16_t height() const { return bounds_.size.h; }
-
-        const sdk::GRect& sdk_reference() const { return bounds_; }
-        sdk::GRect& sdk_reference() { return bounds_; }
-
-    protected:
-        sdk::GRect bounds_;
-    };
-
     class Font
     {
     public:
@@ -47,13 +18,13 @@ namespace pebble
         {
         }
 
-        const sdk::GFont sdk_reference() const { return font_; }
+        sdk::GFont sdk_reference() { return font_; }
 
     private:
         sdk::GFont font_;
     };
 
-    enum class Alignment : GTextAlignment
+    enum class Alignment
     {
         Left = GTextAlignmentLeft,
         Right = GTextAlignmentRight,
@@ -72,27 +43,27 @@ namespace pebble
 
         void set_background_colour(GColor color)
         {
-            text_layer_set_background_color(layer_, color);
+            sdk::text_layer_set_background_color(layer_, color);
         }
 
         void set_text_colour(GColor color)
         {
-            text_layer_set_text_color(layer_, color);
+            sdk::text_layer_set_text_color(layer_, color);
         }
 
         void set_text(const char* text)
         {
-            text_layer_set_text(layer_, text);
+            sdk::text_layer_set_text(layer_, text);
         }
 
         void set_font(Font font)
         {
-            text_layer_set_font(layer_, font.sdk_reference());
+            sdk::text_layer_set_font(layer_, font.sdk_reference());
         }
 
         void set_alignment(Alignment alignment)
         {
-            text_layer_set_text_alignment(layer_, static_cast<GTextAlignment>(alignment));
+            sdk::text_layer_set_text_alignment(layer_, static_cast<GTextAlignment>(alignment));
         }
 
         ~TextLayer()
@@ -106,11 +77,12 @@ namespace pebble
         sdk::TextLayer* layer_;
     };
 
-    class Layer
+    class Layer : public Rect
     {
     public:
         Layer(sdk::Layer* layer)
         :
+            Rect(sdk::layer_get_bounds(layer)),
             layer_(layer)
         {
         }
