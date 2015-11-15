@@ -1,4 +1,4 @@
-#include "pebble-sdk.hpp"
+#include "../pebble-sdk.hpp"
 #include <new>
 
 void* operator new(size_t size)

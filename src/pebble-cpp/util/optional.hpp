@@ -45,6 +45,11 @@ namespace util
             UnsafeEmplace(other.data_.value);
         }
 
+        ~Optional()
+        {
+            Clear();
+        }
+
         bool is_set()
         {
             return initialized_;
@@ -53,6 +58,28 @@ namespace util
         bool is_none()
         {
             return !is_set();
+        }
+
+        TValue &unsafe_get()
+        {
+            return data_.value;
+        }
+
+        TValue* get_pointer_or_null()
+        {
+            if (is_set())
+            {
+                return &(unsafe_get());
+            }
+            else
+            {
+                return nullptr;
+            }
+        }
+
+        const TValue &unsafe_get() const
+        {
+            return data_.value;
         }
 
         void Set(TValue &&value)
@@ -87,11 +114,6 @@ namespace util
             UnsafeEmplace(std::forward<TArgs>(args)...);
         }
 
-        TValue &UnsafeGet()
-        {
-            return data_.value;
-        }
-
         template<class... TArgs>
         void EmplaceIfUnset(TArgs &&... args)
         {
@@ -105,7 +127,7 @@ namespace util
         TValue &GetOrEmplace(TArgs &&... args)
         {
             EmplaceIfUnset(std::forward<TArgs>(args)...);
-            return UnsafeGet();
+            return unsafe_get();
         }
 
         void Clear()
@@ -129,6 +151,7 @@ namespace util
         union Union
         {
             Union() : memory() {}
+            ~Union() {}
 
             char memory[sizeof(TValue)];
             TValue value;

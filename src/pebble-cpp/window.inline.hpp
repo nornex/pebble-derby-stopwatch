@@ -7,72 +7,49 @@
 
 namespace pebble
 {
-    inline
-    Window::Window(Window &&window)
-    :
-        window_(window.sdk_handle()),
-        owned_(window.owned_),
-        layer_(std::move(window.layer_)),
-        handler_(window.handler_)
+    template <class TEventHandler> inline
+    Window<TEventHandler>::Window()
+        :
+        window_(::window_create()),
+        handler_(window_)
     {
-        window.owned_ = false;
+        ::window_set_user_data(window_, this);
     }
 
-    inline
-    Window::~Window()
+    template <class TEventHandler> inline
+    Window<TEventHandler>::~Window()
     {
-        if (owned_)
-        {
-            window_destroy(window_);
-        }
+        ::window_destroy(window_);
     }
 
-    inline
-    Layer& Window::root_layer()
+    template <class TEventHandler> inline
+    Layer& Window<TEventHandler>::root_layer()
     {
         if (layer_.is_none())
         {
             layer_.Emplace(window_get_root_layer(window_));
         }
 
-        return layer_.UnsafeGet();
+        return layer_.unsafe_get();
     }
 
-    inline
-    sdk::Window* Window::sdk_handle()
+    template <class TEventHandler> inline
+    ::Window* Window<TEventHandler>::sdk_handle()
     {
         return window_;
     }
 
-    template <class THandler> inline
-    Window Window::CreateWithHandler()
+    template <class TEventHandler> inline
+    Window<TEventHandler>& Window<TEventHandler>::FromSdkHandle(::Window* sdk_handle)
     {
-        Window window;
-        Handler<THandler>::ForWindow(window);
-        return window;
+        return *static_cast<Window*>(::window_get_user_data(sdk_handle));
     }
 
-    inline
-    Window:: Window()
-    :
-        window_(sdk::window_create()),
-        owned_(true)
+    template <class TEventHandler> inline
+    Window<TEventHandler>::EventHandler::EventHandler(::Window* window)
     {
-    }
-
-    inline
-    Window::Window(sdk::Window* window)
-    :
-        window_(window),
-        owned_(false)
-    {
-    }
-
-    template <class THandler> inline
-    void Window::Handler<THandler>::ForWindow(Window& window)
-    {
-        window_set_window_handlers(
-            window.sdk_handle(),
+        ::window_set_window_handlers(
+            window,
             (WindowHandlers) {
                 .load =         &Load,
                 .appear =       &Appear,
@@ -82,45 +59,32 @@ namespace pebble
         );
     }
 
-    template <class THandler> inline
-    void Window::Handler<THandler>::Load(sdk::Window* sdk_window)
+    template <class TEventHandler> inline
+    void Window<TEventHandler>::EventHandler::Load(::Window* sdk_window)
     {
-        auto* window = Application::Base().window_stack().Find(sdk_window);
-        if (window != nullptr)
-        {
-            window->handler_ = static_cast<void *>(new THandler(*window));
-        }
+        auto& window(FromSdkHandle(sdk_window));
+        window.event_handler().Emplace(window);
     }
 
-    template <class THandler> inline
-    void Window::Handler<THandler>::Unload(sdk::Window* sdk_window)
+    template <class TEventHandler> inline
+    void Window<TEventHandler>::EventHandler::Unload(::Window* sdk_window)
     {
-        auto* window = Application::Base().window_stack().Find(sdk_window);
-        if (window != nullptr && window->handler_ != nullptr)
-        {
-            delete static_cast<THandler*>(window->handler_);
-            window->handler_ = nullptr;
-        }
+        auto& window(FromSdkHandle(sdk_window));
+        window.event_handler().Clear();
     }
 
-    template <class THandler> inline
-    void Window::Handler<THandler>::Appear(sdk::Window* sdk_window)
+    template <class TEventHandler> inline
+    void Window<TEventHandler>::EventHandler::Appear(::Window* sdk_window)
     {
-        auto* window = Application::Base().window_stack().Find(sdk_window);
-        if (window != nullptr && window->handler_ != nullptr)
-        {
-            static_cast<THandler*>(window->handler_)->WindowAppear();
-        }
+        auto& window(FromSdkHandle(sdk_window));
+        window.event_handler().unsafe_get().OnAppear();
     }
 
-    template <class THandler> inline
-    void Window::Handler<THandler>::Disappear(sdk::Window* sdk_window)
+    template <class TEventHandler> inline
+    void Window<TEventHandler>::EventHandler::Disappear(::Window* sdk_window)
     {
-        auto* window = Application::Base().window_stack().Find(sdk_window);
-        if (window != nullptr && window->handler_ != nullptr)
-        {
-            static_cast<THandler*>(window->handler_)->WindowDisappear();
-        }
+        auto& window(FromSdkHandle(sdk_window));
+        window.event_handler().unsafe_get().OnDisappear();
     }
 }
 

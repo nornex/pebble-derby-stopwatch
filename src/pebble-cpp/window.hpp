@@ -9,52 +9,58 @@
 
 #include "pebble-sdk.hpp"
 #include "layer.hpp"
-#include "optional.hpp"
+#include "util/optional.hpp"
 
 namespace pebble
 {
+    /// Wrapper around the Pebble SDK's Window pointer. The TEventHandler object is created when the window's load
+    /// handler is called, and destroyed when unload is called.
+    template <class TEventHandler>
     class Window
     {
     public:
-        /// Move constructor for a window, takes ownership of the object if the original also had ownership.
-        Window(Window&& window);
+        /// Constructor
+        Window();
 
         /// Destructor, will free if underlying SDK window is owned by this object
         ~Window();
 
+        /// Get the base UI layer of this window.
         Layer& root_layer();
 
-        sdk::Window* sdk_handle();
+        /// Get the Pebble SDK's pointer for this object.
+        ::Window* sdk_handle();
 
-        template <class THandler>
-        static Window CreateWithHandler();
+        /// Lookup a window object based on the SDK pointer.
+        static Window<TEventHandler>& FromSdkHandle(::Window* sdk_handle);
+
+        util::Optional<TEventHandler>& event_handler()
+        {
+            return handler_.lifetime_;
+        }
 
     private:
-        Window();
-
-        Window(sdk::Window* window);
-
+        Window(Window&& window) = delete;
         Window(const Window&) = delete;
 
-        sdk::Window* window_;
-        bool owned_;
+        ::Window* window_;
 
         util::Optional<Layer> layer_;
-        void* handler_ = nullptr;
 
-        template <class THandler>
-        class Handler
+        class EventHandler
         {
-            friend class Window;
+        public:
+            EventHandler(::Window* window);
 
-            static void ForWindow(Window& window);
+            util::Optional<TEventHandler> lifetime_;
 
-            static void Load(sdk::Window* sdk_window);
-            static void Unload(sdk::Window* sdk_window);
-            static void Appear(sdk::Window* sdk_window);
-            static void Disappear(sdk::Window* window);
-
+            static void Load(::Window* sdk_window);
+            static void Unload(::Window* sdk_window);
+            static void Appear(::Window* sdk_window);
+            static void Disappear(::Window* window);
         };
+
+        EventHandler handler_;
     };
 
     enum class Animate : bool
@@ -67,41 +73,14 @@ namespace pebble
     {
     public:
         WindowStack()
-        :
-            next_(&stack_[0])
         {
         }
 
-        Window* Find(sdk::Window* window)
+        template<class THandler>
+        void Push(Window<THandler>& window, Animate animated)
         {
-            Window** current = next_;
-            do
-            {
-                current--;
-                if (current < stack_) return nullptr;
-            }
-            while ((*current)->sdk_handle() != window);
-
-            return *current;
-        }
-
-        void Push(Window& window, Animate animated)
-        {
-            if (next_ > stack_ + sizeof(stack_))
-            {
-                // TODO(matt) Logging
-                return;
-            }
-
-            *next_ = &window;
-            next_++;
-
             window_stack_push(window.sdk_handle(), static_cast<bool>(animated));
         }
-
-    private:
-        Window* stack_[16];
-        Window** next_;
     };
 
 
@@ -115,9 +94,15 @@ namespace pebble
             app.StartEventLoop();
         }
 
-        static Application& Base()
+        static Application& GetStaticBase()
         {
             return *singleton;
+        }
+
+        template <class TApp>
+        static TApp& GetStaticCast()
+        {
+            return *static_cast<TApp*>(singleton);
         }
 
         WindowStack& window_stack()
@@ -134,7 +119,7 @@ namespace pebble
     private:
         void StartEventLoop()
         {
-            sdk::app_event_loop();
+            ::app_event_loop();
         }
 
         WindowStack window_stack_;

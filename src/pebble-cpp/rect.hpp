@@ -12,16 +12,16 @@ namespace pebble
     class Rect
     {
     public:
-        Rect(sdk::GRect bounds)
+        Rect(::GRect bounds)
             : bounds_(bounds)
         {
         }
 
         Rect(int16_t x, int16_t y, int16_t width, int16_t height)
             :
-            bounds_(sdk::GRect{
-                .origin = (sdk::GPoint) { .x = x, .y = y },
-                .size = (sdk::GSize) { .w = width, .h = height }
+            bounds_(::GRect{
+                .origin = (::GPoint) { .x = x, .y = y },
+                .size = (::GSize) { .w = width, .h = height }
             })
         {
         }
@@ -31,11 +31,11 @@ namespace pebble
         int16_t width() const { return bounds_.size.w; }
         int16_t height() const { return bounds_.size.h; }
 
-        const sdk::GRect& sdk_value() const { return bounds_; }
-        sdk::GRect& sdk_value() { return bounds_; }
+        const ::GRect& sdk_value() const { return bounds_; }
+        ::GRect& sdk_value() { return bounds_; }
 
     protected:
-        sdk::GRect bounds_;
+        ::GRect bounds_;
     };
 }
 
