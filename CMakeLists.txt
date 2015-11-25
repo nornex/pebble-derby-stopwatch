@@ -20,8 +20,13 @@ set(SOURCE_FILES
         src/pebble-cpp/window.inline.hpp
         src/pebble-cpp/rect.hpp
         src/pebble-cpp/util/optional.hpp
-        src/pebble-cpp/handler.hpp src/pebble-cpp/util/types.hpp src/pebble-cpp/util/bit_mask.hpp
-        src/pebble-cpp/util/calendar_time.hpp src/pebble-cpp/util/fixed_string.hpp)
+        src/pebble-cpp/tick_handler.hpp
+        src/pebble-cpp/util/types.hpp
+        src/pebble-cpp/util/bit_mask.hpp
+        src/pebble-cpp/util/calendar_time.hpp
+        src/pebble-cpp/util/fixed_string.hpp
+        src/pebble-cpp/click_handler.hpp
+        )
 
 include_directories(
     /home/matt/code/pebble-basic/PebbleSDK-3.6/Pebble/chalk/include
