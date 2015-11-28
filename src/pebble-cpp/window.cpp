@@ -2,5 +2,5 @@
 
 namespace pebble
 {
-    Application* Application::singleton;
+    //Application* Application::singleton;
 }

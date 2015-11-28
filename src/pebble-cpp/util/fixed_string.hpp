@@ -9,6 +9,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <cstdio>
 #include <cstring>
 
 #include "calendar_time.hpp"
@@ -51,10 +52,18 @@ namespace util
 
         uint16_t length() const { return length_; }
 
-        template <class TWrapper>
-        void SetFromTime(const CalendarTimeBase<TWrapper>& time, const char* format)
+        template <class TWrapper> inline
+        FixedString& SetFromTime(const CalendarTimeBase<TWrapper>& time, const char* format)
         {
             length_ = ::strftime(str_, TSize, format, &(time.get_raw()));
+            return *this;
+        }
+
+        template <class... TParams> inline
+        FixedString& SetFromFormat(const char* format, TParams... params)
+        {
+            length_ = std::sprintf(str_, format, params...);
+            return *this;
         }
 
     private:

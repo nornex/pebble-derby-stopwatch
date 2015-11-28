@@ -17,4 +17,15 @@ extern "C"
 #include <time.h>
 #endif
 
+namespace pebble
+{
+    struct Platform
+    {
+        static const bool kMonocrome = PBL_IF_COLOR_ELSE(false, true);
+        static const bool kColor = PBL_IF_COLOR_ELSE(true, false);
+
+        Platform() = delete;
+    };
+}
+
 #endif // PEBBLE_API_WRAPPER_HPP_

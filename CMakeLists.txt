@@ -13,8 +13,6 @@ set(SOURCE_FILES
         src/basics.cpp
         src/pebble-cpp/pebble-sdk.hpp
         src/pebble-cpp/util/malloc.cpp
-        src/pebble-cpp/pebble.cpp
-        src/pebble-cpp/pebble.hpp
         src/pebble-cpp/window.hpp
         src/pebble-cpp/layer.hpp
         src/pebble-cpp/window.inline.hpp
@@ -26,7 +24,7 @@ set(SOURCE_FILES
         src/pebble-cpp/util/calendar_time.hpp
         src/pebble-cpp/util/fixed_string.hpp
         src/pebble-cpp/click_handler.hpp
-        )
+        src/pebble-cpp/color.hpp src/pebble-cpp/font.hpp)
 
 include_directories(
     /home/matt/code/pebble-basic/PebbleSDK-3.6/Pebble/chalk/include

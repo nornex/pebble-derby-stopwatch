@@ -2,30 +2,91 @@
 #include "pebble-cpp/window.hpp"
 #include "pebble-cpp/tick_handler.hpp"
 
-struct MainWindow : pebble::WindowController<MainWindow, pebble::ClickHandling::On>
+class CountdownTimer
+{
+public:
+    typedef uint8_t TSeconds;
+
+    CountdownTimer(TSeconds max_seconds)
+    :
+        max_seconds_(max_seconds)
+    {
+    }
+
+    CountdownTimer(const CountdownTimer&) = delete;
+
+public:
+    TSeconds total_elapsed_seconds() const {  return elapsed_seconds_; }
+    TSeconds total_remaining_seconds() const {  return max_seconds_ - elapsed_seconds_;  }
+    TSeconds total_max_seconds() const { return max_seconds_; }
+
+    uint8_t minutes() const { return total_remaining_seconds() / 60; }
+    uint8_t seconds() const { return total_remaining_seconds() % 60; }
+
+    void Reset()
+    {
+        elapsed_seconds_ = 0;
+    }
+
+    void decrement_seconds(TSeconds seconds)
+    {
+        if (total_remaining_seconds() <= seconds)
+        {
+            elapsed_seconds_ = max_seconds_;
+        }
+        else
+        {
+            elapsed_seconds_ += seconds;
+        }
+    }
+
+private:
+    const TSeconds max_seconds_;
+    TSeconds elapsed_seconds_ = 0;
+};
+
+struct Stopwatch : pebble::WindowController<Stopwatch, pebble::ClickHandling::On>
 {
     TWindow& window_;
     pebble::TextLayer clock_text_;
-    pebble::OnTickHandler<MainWindow> tick_handler_;
-    util::FixedString<8> clock_str_;
+    pebble::OnTickHandler<Stopwatch> tick_handler_;
 
-    MainWindow(TWindow& window);
+    enum class Period
+    {
+        TimingJam,
+        BetweenJams
+    };
 
-    static MainWindow& GetStatic();
+    bool paused_ = true;
+    Period period_ = Period::TimingJam;
+    CountdownTimer jam_countdown_ = {60 * 2 };
+    CountdownTimer between_jam_countdown_ = {30 };
+
+    util::FixedString<8> time_str_;
+
+    Stopwatch(TWindow& window);
+
+    static Stopwatch& GetStatic();
 
     void SetupClickHandlers(TClickHandlerSetup& setup);
     void OnTick(const util::CalendarTimeRef& time, pebble::TimeUnitMask);
     void OnSingleClick(pebble::ClickInfo click_info);
+    void OnLongClick(pebble::ClickInfo click_info, pebble::ButtonState state);
+
+    CountdownTimer& current_countdown()
+    {
+        switch (period_)
+        {
+            case Period::TimingJam:   return jam_countdown_;
+            case Period::BetweenJams: return between_jam_countdown_;
+        }
+        return jam_countdown_;
+    }
 };
 
-struct App : public pebble::Application
+struct App : public pebble::Application<App>
 {
-    MainWindow::TWindow main_window_;
-
-    static App& GetStatic()
-    {
-        return pebble::Application::GetStaticCast<App>();
-    }
+    Stopwatch::TWindow main_window_;
 
     App()
     {
@@ -34,58 +95,67 @@ struct App : public pebble::Application
 };
 
 /*--------------------------------------------------------------------------------------------------------------------*\
- * MainWindow - Implementation
+ * Stopwatch - Implementation
 \*--------------------------------------------------------------------------------------------------------------------*/
 
-MainWindow::MainWindow(TWindow& window)
+Stopwatch::Stopwatch(TWindow& window)
 :
     window_(window),
     clock_text_(0, PBL_IF_ROUND_ELSE(58, 52), window.root_layer().width(), 50),
     tick_handler_(pebble::TimeUnit::Minute)
 {
-    clock_text_.set_background_colour(GColorClear);
-    clock_text_.set_text_colour(GColorBlack);
-    clock_text_.set_font(pebble::Font(FONT_KEY_BITHAM_42_BOLD));
-    clock_text_.set_alignment(pebble::Alignment::Center);
+    clock_text_.SetBackgroundColor(GColorClear);
+    clock_text_.SetTextColor(pebble::Color(255, 0, 0));
+    clock_text_.SetFont(pebble::Font(FONT_KEY_BITHAM_42_BOLD));
+    clock_text_.SetAlignment(pebble::Alignment::Center);
 
     OnTick(
-        util::CalendarTimeRef(util::FromTimeSource::Localtime),
+        util::CalendarTimeRef::Localtime(),
         pebble::TimeUnitMask(pebble::TimeUnit::Minute)
     );
 
     window.root_layer().AddChild(clock_text_);
 }
 
-MainWindow& MainWindow::GetStatic()
+Stopwatch& Stopwatch::GetStatic()
 {
-    return App::GetStatic().main_window_.event_handler().unsafe_get();
+    return App::GetStatic().main_window_.controller().unsafe_get();
 }
 
-void MainWindow::SetupClickHandlers(TClickHandlerSetup& setup)
+void Stopwatch::SetupClickHandlers(TClickHandlerSetup& setup)
 {
-    setup.SetupSingleClick(pebble::Button::Up);
-    setup.SetupSingleClick(pebble::Button::Down);
     setup.SetupSingleClick(pebble::Button::Select);
+    setup.SetupLongClick(pebble::Button::Select);
 }
 
-void MainWindow::OnSingleClick(pebble::ClickInfo click_info)
+void Stopwatch::OnSingleClick(pebble::ClickInfo click_info)
 {
-    switch (click_info.button())
+    paused_ = !paused_;
+}
+
+void Stopwatch::OnLongClick(pebble::ClickInfo click_info, pebble::ButtonState state)
+{
+    if (state == pebble::ButtonState::Up)
     {
-        case pebble::Button::Up:        APP_LOG(APP_LOG_LEVEL_DEBUG, "CLICK Up"); break;
-        case pebble::Button::Back:      APP_LOG(APP_LOG_LEVEL_DEBUG, "CLICK Back"); break;
-        case pebble::Button::Select:    APP_LOG(APP_LOG_LEVEL_DEBUG, "CLICK Select"); break;
-        case pebble::Button::Down:      APP_LOG(APP_LOG_LEVEL_DEBUG, "CLICK Down"); break;
+        paused_ = false;
+        current_countdown().Reset();
     }
 }
 
-void MainWindow::OnTick(const util::CalendarTimeRef& time, pebble::TimeUnitMask)
+void Stopwatch::OnTick(const util::CalendarTimeRef& time, pebble::TimeUnitMask)
 {
-    clock_str_.SetFromTime(time, "%H:%M");
-    clock_text_.set_text(clock_str_);
+    if (paused_) return;
+
+    auto& countdown(current_countdown());
+
+    countdown.decrement_seconds(1);
+
+    clock_text_.SetText(time_str_.SetFromFormat(
+        "%uh:%uh", countdown.minutes(), countdown.seconds()
+    ));
 }
 
 extern "C" int main(void)
 {
-    pebble::Application::Run<App>();
+    App::Run();
 }

@@ -140,7 +140,34 @@ namespace util
         ::tm* ptr_;
     };
 
-    typedef CalendarTimeBase<TmPointer> CalendarTimeRef;
+    class CalendarTimeRef : public CalendarTimeBase<TmPointer>
+    {
+    public:
+        CalendarTimeRef(::tm* tm_ptr)
+        :
+            CalendarTimeBase<TmPointer>(tm_ptr)
+        {
+        }
+
+        template<class TWrapper>
+        CalendarTimeRef(CalendarTimeBase<TWrapper>& other)
+        :
+            CalendarTimeBase<TmPointer>(other)
+        {
+        }
+
+        static CalendarTimeRef Localtime()
+        {
+            return CalendarTimeRef(FromTimeSource::Localtime);
+        }
+
+    private:
+        CalendarTimeRef(const FromTimeSource time_source)
+            :
+            CalendarTimeBase<TmPointer>(time_source)
+        {
+        }
+    };
 }
 
 #endif //PEBBLE_CPP_TIME_HPP
