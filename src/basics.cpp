@@ -1,68 +1,31 @@
 
-#include "pebble-cpp/window.hpp"
+#include "pebble-cpp/application.hpp"
 #include "pebble-cpp/tick_handler.hpp"
-
-class CountdownTimer
-{
-public:
-    typedef uint8_t TSeconds;
-
-    CountdownTimer(TSeconds max_seconds)
-    :
-        max_seconds_(max_seconds)
-    {
-    }
-
-    CountdownTimer(const CountdownTimer&) = delete;
-
-public:
-    TSeconds total_elapsed_seconds() const {  return elapsed_seconds_; }
-    TSeconds total_remaining_seconds() const {  return max_seconds_ - elapsed_seconds_;  }
-    TSeconds total_max_seconds() const { return max_seconds_; }
-
-    uint8_t minutes() const { return total_remaining_seconds() / 60; }
-    uint8_t seconds() const { return total_remaining_seconds() % 60; }
-
-    void Reset()
-    {
-        elapsed_seconds_ = 0;
-    }
-
-    void decrement_seconds(TSeconds seconds)
-    {
-        if (total_remaining_seconds() <= seconds)
-        {
-            elapsed_seconds_ = max_seconds_;
-        }
-        else
-        {
-            elapsed_seconds_ += seconds;
-        }
-    }
-
-private:
-    const TSeconds max_seconds_;
-    TSeconds elapsed_seconds_ = 0;
-};
+#include "countdown_timer.hpp"
 
 struct Stopwatch : pebble::WindowController<Stopwatch, pebble::ClickHandling::On>
 {
     TWindow& window_;
-    pebble::TextLayer clock_text_;
+    pebble::TextLayer jam_clock_layer_;
+    pebble::TextLayer prev_jam_clock_layer_;
+    pebble::TextLayer break_clock_layer_;
     pebble::OnTickHandler<Stopwatch> tick_handler_;
 
     enum class Period
     {
-        TimingJam,
-        BetweenJams
+        Jam,
+        Break
     };
 
     bool paused_ = true;
-    Period period_ = Period::TimingJam;
-    CountdownTimer jam_countdown_ = {60 * 2 };
-    CountdownTimer between_jam_countdown_ = {30 };
+    Period period_ = Period::Break;
+    CountdownTimer jam_countdown_ = { util::Minutes(2) };
+    CountdownTimer prev_jam_countdown_ = { util::Minutes(2) };
+    CountdownTimer break_countdown_ = { util::Seconds(30) };
 
-    util::FixedString<8> time_str_;
+    util::FixedString<8> jam_clock_string_;
+    util::FixedString<8> prev_jam_clock_string_;
+    util::FixedString<8> break_clock_string_;
 
     Stopwatch(TWindow& window);
 
@@ -73,15 +36,8 @@ struct Stopwatch : pebble::WindowController<Stopwatch, pebble::ClickHandling::On
     void OnSingleClick(pebble::ClickInfo click_info);
     void OnLongClick(pebble::ClickInfo click_info, pebble::ButtonState state);
 
-    CountdownTimer& current_countdown()
-    {
-        switch (period_)
-        {
-            case Period::TimingJam:   return jam_countdown_;
-            case Period::BetweenJams: return between_jam_countdown_;
-        }
-        return jam_countdown_;
-    }
+    void SwitchPeriod(Period new_period);
+    void RedrawClock();
 };
 
 struct App : public pebble::Application<App>
@@ -94,6 +50,11 @@ struct App : public pebble::Application<App>
     }
 };
 
+extern "C" int main(void)
+{
+    App::Run();
+}
+
 /*--------------------------------------------------------------------------------------------------------------------*\
  * Stopwatch - Implementation
 \*--------------------------------------------------------------------------------------------------------------------*/
@@ -101,20 +62,33 @@ struct App : public pebble::Application<App>
 Stopwatch::Stopwatch(TWindow& window)
 :
     window_(window),
-    clock_text_(0, PBL_IF_ROUND_ELSE(58, 52), window.root_layer().width(), 50),
-    tick_handler_(pebble::TimeUnit::Minute)
+    jam_clock_layer_(0, PBL_IF_ROUND_ELSE(40, 30), window.root_layer().width(), 50),
+    prev_jam_clock_layer_(0, PBL_IF_ROUND_ELSE(10, 5), window.root_layer().width(), 30),
+    break_clock_layer_(0, 100, window.root_layer().width(), 35),
+    tick_handler_(pebble::TimeUnit::Second)
 {
-    clock_text_.SetBackgroundColor(GColorClear);
-    clock_text_.SetTextColor(pebble::Color(255, 0, 0));
-    clock_text_.SetFont(pebble::Font(FONT_KEY_BITHAM_42_BOLD));
-    clock_text_.SetAlignment(pebble::Alignment::Center);
+    jam_clock_layer_.SetBackgroundColor(GColorClear);
+    jam_clock_layer_.SetFont(pebble::Font(FONT_KEY_BITHAM_42_BOLD));
+    jam_clock_layer_.SetAlignment(pebble::Alignment::Center);
 
-    OnTick(
-        util::CalendarTimeRef::Localtime(),
-        pebble::TimeUnitMask(pebble::TimeUnit::Minute)
-    );
+    prev_jam_clock_layer_.SetBackgroundColor(GColorClear);
+    prev_jam_clock_layer_.SetFont(pebble::Font(FONT_KEY_GOTHIC_14));
+    prev_jam_clock_layer_.SetAlignment(pebble::Alignment::Center);
 
-    window.root_layer().AddChild(clock_text_);
+    break_clock_layer_.SetBackgroundColor(GColorClear);
+    break_clock_layer_.SetFont(pebble::Font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS));
+    break_clock_layer_.SetAlignment(pebble::Alignment::Center);
+
+    SwitchPeriod(Period::Break);
+
+    paused_ = true;
+    prev_jam_countdown_.set_remaining(util::Duration::Zero());
+
+    RedrawClock();
+
+    window.root_layer().AddChild(jam_clock_layer_);
+    window.root_layer().AddChild(prev_jam_clock_layer_);
+    window.root_layer().AddChild(break_clock_layer_);
 }
 
 Stopwatch& Stopwatch::GetStatic()
@@ -126,36 +100,151 @@ void Stopwatch::SetupClickHandlers(TClickHandlerSetup& setup)
 {
     setup.SetupSingleClick(pebble::Button::Select);
     setup.SetupLongClick(pebble::Button::Select);
+
+    setup.SetupLongClick(pebble::Button::Up);
+
+    setup.SetupSingleClick(pebble::Button::Down);
+    setup.SetupLongClick(pebble::Button::Down);
 }
 
 void Stopwatch::OnSingleClick(pebble::ClickInfo click_info)
 {
-    paused_ = !paused_;
+    switch (click_info.button())
+    {
+        case pebble::Button::Select:
+        {
+            paused_ = !paused_;
+            APP_LOG(APP_LOG_LEVEL_DEBUG, "Pause changed: %d", paused_);
+            break;
+        }
+        case pebble::Button::Down:
+        {
+            if (period_ == Period::Jam)
+            {
+                SwitchPeriod(Period::Break);
+            }
+            else if (period_ == Period::Break)
+            {
+                if (break_countdown_.remaining() > util::Seconds(5))
+                {
+                    break_countdown_.set_remaining(util::Seconds(5));
+                    RedrawClock();
+                }
+                else
+                {
+                    SwitchPeriod(Period::Jam);
+                }
+            }
+            break;
+        }
+        default: break;
+    }
 }
 
 void Stopwatch::OnLongClick(pebble::ClickInfo click_info, pebble::ButtonState state)
 {
-    if (state == pebble::ButtonState::Up)
+    if (state != pebble::ButtonState::Down)
     {
-        paused_ = false;
-        current_countdown().Reset();
+        return;
     }
+
+    switch (click_info.button())
+    {
+        case pebble::Button::Up:
+        {
+            if (period_ == Period::Break && !prev_jam_countdown_.finished())
+            {
+                jam_countdown_.set_remaining(prev_jam_countdown_.remaining());
+                SwitchPeriod(Period::Jam);
+            }
+            break;
+        }
+        default:
+        {
+            OnSingleClick(click_info);
+            break;
+        }
+    }
+}
+
+void Stopwatch::SwitchPeriod(Period new_period)
+{
+    switch (new_period)
+    {
+        case Period::Jam:
+        {
+            APP_LOG(APP_LOG_LEVEL_DEBUG, "Switch to JAM");
+            jam_clock_layer_.SetTextColor(pebble::Color::Black());
+            prev_jam_clock_layer_.SetTextColor(pebble::Color::Clear());
+            break_clock_layer_.SetTextColor(pebble::Color::LightGray());
+
+            prev_jam_countdown_.set_remaining(util::Duration::Zero());
+            break_countdown_.set_remaining(util::Duration::Zero());
+            break;
+        }
+        case Period::Break:
+        {
+            APP_LOG(APP_LOG_LEVEL_DEBUG, "Switch to BREAK");
+            jam_clock_layer_.SetTextColor(pebble::Color(0b11101010));
+            prev_jam_clock_layer_.SetTextColor(pebble::Color::LightGray());
+            break_clock_layer_.SetTextColor(pebble::Color::Purple());
+
+            prev_jam_countdown_.set_remaining(jam_countdown_.remaining());
+            jam_countdown_.Reset();
+            break_countdown_.Reset();
+            break;
+        }
+    }
+
+    paused_ = false;
+    period_ = new_period;
+    RedrawClock();
 }
 
 void Stopwatch::OnTick(const util::CalendarTimeRef& time, pebble::TimeUnitMask)
 {
+    prev_jam_countdown_.decrement(util::Seconds(1));
+
     if (paused_) return;
 
-    auto& countdown(current_countdown());
+    switch (period_)
+    {
+        case Period::Jam:
+        {
+            jam_countdown_.decrement(util::Seconds(1));
+            break;
+        }
+        case Period::Break:
+        {
+            break_countdown_.decrement(util::Seconds(1));
 
-    countdown.decrement_seconds(1);
+            if (break_countdown_.finished())
+            {
+                jam_countdown_.Reset();
+                SwitchPeriod(Period::Jam);
+            }
+            break;
+        }
+    }
 
-    clock_text_.SetText(time_str_.SetFromFormat(
-        "%uh:%uh", countdown.minutes(), countdown.seconds()
-    ));
+    RedrawClock();
 }
 
-extern "C" int main(void)
+void Stopwatch::RedrawClock()
 {
-    App::Run();
+    jam_clock_layer_.SetText(jam_clock_string_.SetFromFormat(
+        "%u:%02u", jam_countdown_.remaining().minutes(), jam_countdown_.remaining().seconds()
+    ));
+
+    prev_jam_clock_layer_.SetText(prev_jam_clock_string_.SetFromFormat(
+        "%u:%02u", prev_jam_countdown_.remaining().minutes(), prev_jam_countdown_.remaining().seconds()
+    ));
+
+    break_clock_layer_.SetText(break_clock_string_.SetFromFormat(
+        "%u:%02u", break_countdown_.remaining().minutes(), break_countdown_.remaining().seconds()
+    ));
+
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "New clock text: %s", jam_clock_string_.c_str());
 }
+
+

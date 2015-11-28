@@ -35,7 +35,7 @@ def configure(ctx):
 
         env.CXXFLAGS = list(base_env['CFLAGS'])
         env.CXXFLAGS.remove('-std=c99')
-        env.CXXFLAGS.extend(['-std=c++11', '-fPIE', '-fno-unwind-tables', '-fno-exceptions'])
+        env.CXXFLAGS.extend(['-std=c++11', '-fPIE', '-fno-unwind-tables', '-fno-exceptions', '-lrdimon'])
 
 def build(ctx):
     ctx.load('pebble_sdk')

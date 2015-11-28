@@ -9,6 +9,15 @@
 extern "C"
 {
 #include <pebble.h>
+
+// Define snprintf here, its not available in C++11
+extern int snprintf(
+    char *__restrict dest,
+    size_t dest_max_length,
+    const char *__restrict format,
+    ...
+    ) __attribute__ ((__format__ (__printf__, 3, 4)));
+
 }
 
 // If the pebble library did not define the time functions itself, pull them in.
@@ -16,6 +25,8 @@ extern "C"
 #undef _TIME_H_
 #include <time.h>
 #endif
+
+
 
 namespace pebble
 {

@@ -9,7 +9,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <cstdio>
 #include <cstring>
 
 #include "calendar_time.hpp"
@@ -62,7 +61,7 @@ namespace util
         template <class... TParams> inline
         FixedString& SetFromFormat(const char* format, TParams... params)
         {
-            length_ = std::sprintf(str_, format, params...);
+            length_ = snprintf(str_, TSize, format, params...);
             return *this;
         }
 

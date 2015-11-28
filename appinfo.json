@@ -1,8 +1,8 @@
 {
   "uuid": "4c1941d3-6f71-467f-9241-57cc34da4b11",
-  "shortName": "watchface",
-  "longName": "watchface",
-  "companyName": "MakeAwesomeHappen",
+  "shortName": "Derby Stopwatch",
+  "longName": "Roller Derby Stopwatch",
+  "companyName": "Nornex",
   "versionLabel": "1.0",
   "sdkVersion": "3",
   "targetPlatforms": ["aplite", "basalt", "chalk"],
