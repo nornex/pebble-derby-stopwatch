@@ -1,0 +1,8 @@
+//
+// Created by matt on 28/11/15.
+//
+
+#ifndef PEBBLE_CPP_COUNTDOWN_TIMER_HPP
+#define PEBBLE_CPP_COUNTDOWN_TIMER_HPP
+
+#endif //PEBBLE_CPP_COUNTDOWN_TIMER_HPP
