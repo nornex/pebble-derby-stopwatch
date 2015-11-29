@@ -60,7 +60,7 @@ namespace util
             return !is_set();
         }
 
-        TValue &unsafe_get()
+        TValue& unsafe_get()
         {
             return data_.value;
         }

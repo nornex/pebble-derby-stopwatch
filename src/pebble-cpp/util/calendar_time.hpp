@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <cstring>
 
 namespace util
 {

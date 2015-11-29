@@ -24,6 +24,8 @@ namespace util
     {
         typedef typename  IntOfSize<sizeof(T)>::Type Type;
     };
+
+
 }
 
 #endif //PEBBLE_CPP_TYPES_HPP

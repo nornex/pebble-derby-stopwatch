@@ -51,8 +51,25 @@ namespace util
 
         uint16_t length() const { return length_; }
 
+        FixedString& Set(const char* other)
+        {
+            length_ = static_cast<uint16_t>(std::min(std::strlen(other), static_cast<size_t>(TSize - 1)));
+            std::memcpy(str_, other, length_);
+            str_[length_] = '\0';
+            return *this;
+        }
+
+        template <size_t TOtherSize>
+        FixedString& Set(const FixedString<TOtherSize>& other)
+        {
+            length_ = std::min(other.length(), TSize - 1);
+            std::memcpy(str_, other.c_str(), length_);
+            str_[length_] = '\0';
+            return *this;
+        }
+
         template <class TWrapper> inline
-        FixedString& SetFromTime(const CalendarTimeBase<TWrapper>& time, const char* format)
+        FixedString& SetFromTime(const char* format, const CalendarTimeBase<TWrapper>& time)
         {
             length_ = ::strftime(str_, TSize, format, &(time.get_raw()));
             return *this;

@@ -28,7 +28,8 @@ set(SOURCE_FILES
     src/pebble-cpp/time_handler.hpp
     src/pebble-cpp/application.hpp
     src/countdown_timer.hpp
-    src/pebble-cpp/util/duration.hpp src/pebble-cpp/vibration_handler.hpp)
+    src/pebble-cpp/util/duration.hpp
+    src/pebble-cpp/vibration.hpp src/pebble-cpp/text_layer.hpp)
 
 include_directories(
     /home/matt/code/PebbleSDK-3.6/Pebble/chalk/include

@@ -9,7 +9,6 @@
 #include "rect.hpp"
 #include "font.hpp"
 #include "color.hpp"
-#include "util/fixed_string.hpp"
 #include "util/types.hpp"
 
 namespace pebble
@@ -51,52 +50,6 @@ namespace pebble
         BottomLeft  = ::GAlignBottomLeft
     };
 
-    class TextLayer : public Rect
-    {
-    public:
-        TextLayer(int16_t x, int16_t y, int16_t width, int16_t height)
-        :
-            Rect(x, y, width, height),
-            layer_(::text_layer_create(bounds_))
-        {
-        }
-
-        void SetBackgroundColor(Color color)
-        {
-            ::text_layer_set_background_color(layer_, color.sdk_value());
-        }
-
-        void SetTextColor(Color color)
-        {
-            ::text_layer_set_text_color(layer_, color.sdk_value());
-        }
-
-        template <class TString>
-        void SetText(const TString& text)
-        {
-            ::text_layer_set_text(layer_, util::convert::CString(text));
-        }
-
-        void SetFont(Font font)
-        {
-            ::text_layer_set_font(layer_, font.sdk_reference());
-        }
-
-        void SetAlignment(Alignment alignment)
-        {
-            ::text_layer_set_text_alignment(layer_, static_cast< ::GTextAlignment >(alignment));
-        }
-
-        ~TextLayer()
-        {
-            ::text_layer_destroy(layer_);
-        }
-
-        ::TextLayer* sdk_handle() { return layer_; }
-
-    private:
-        ::TextLayer* layer_;
-    };
 
     class BitmapLayer : public Rect
     {
@@ -106,6 +59,11 @@ namespace pebble
             Rect(x, y, width, height),
             layer_(::bitmap_layer_create(bounds_))
         {
+        }
+
+        ~BitmapLayer()
+        {
+            ::bitmap_layer_destroy(layer_);
         }
 
         void SetBitmap(const ::GBitmap* bitmap)
@@ -123,10 +81,10 @@ namespace pebble
             ::bitmap_layer_set_background_color(layer_, color.sdk_value());
         }
 
-        ~BitmapLayer()
-        {
-            ::bitmap_layer_destroy(layer_);
-        }
+        ::BitmapLayer* sdk_handle() { return layer_; }
+
+        ::Layer* sdk_layer() { return ::bitmap_layer_get_layer(sdk_handle()); }
+
     private:
         ::BitmapLayer* layer_;
     };
@@ -141,9 +99,10 @@ namespace pebble
         {
         }
 
-        void AddChild(TextLayer& text_layer)
+        template <class TLayer>
+        void AddChild(TLayer& other_layer)
         {
-            layer_add_child(layer_, text_layer_get_layer(text_layer.sdk_handle()));
+            layer_add_child(layer_, other_layer.sdk_layer());
         }
 
     private:

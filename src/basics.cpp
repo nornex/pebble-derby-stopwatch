@@ -2,14 +2,20 @@
 #include "pebble-cpp/application.hpp"
 #include "pebble-cpp/tick_handler.hpp"
 #include "countdown_timer.hpp"
+#include "pebble-cpp/vibration.hpp"
+#include "pebble-cpp/text_layer.hpp"
 
 struct Stopwatch : pebble::WindowController<Stopwatch, pebble::ClickHandling::On>
 {
     TWindow& window_;
-    pebble::TextLayer jam_clock_layer_;
-    pebble::TextLayer prev_jam_clock_layer_;
-    pebble::TextLayer break_clock_layer_;
+    pebble::TextLayerWithBuffer<8> jam_clock_layer_;
+    pebble::TextLayerWithBuffer<8> prev_jam_clock_layer_;
+    pebble::TextLayerWithBuffer<8> break_clock_layer_;
     pebble::OnTickHandler<Stopwatch> tick_handler_;
+
+
+    pebble::Vibration start_of_jam_vibration_;
+    util::Optional<pebble::CustomVibration<20>> end_of_jam_vibration_;
 
     enum class Period
     {
@@ -19,13 +25,9 @@ struct Stopwatch : pebble::WindowController<Stopwatch, pebble::ClickHandling::On
 
     bool paused_ = true;
     Period period_ = Period::Break;
-    CountdownTimer jam_countdown_ = { util::Minutes(2) };
-    CountdownTimer prev_jam_countdown_ = { util::Minutes(2) };
+    CountdownTimer jam_countdown_ = { util::Seconds(10) };
+    CountdownTimer prev_jam_countdown_ = { util::Seconds(10) };
     CountdownTimer break_countdown_ = { util::Seconds(30) };
-
-    util::FixedString<8> jam_clock_string_;
-    util::FixedString<8> prev_jam_clock_string_;
-    util::FixedString<8> break_clock_string_;
 
     Stopwatch(TWindow& window);
 
@@ -82,7 +84,7 @@ Stopwatch::Stopwatch(TWindow& window)
     SwitchPeriod(Period::Break);
 
     paused_ = true;
-    prev_jam_countdown_.set_remaining(util::Duration::Zero());
+    prev_jam_countdown_.finish();
 
     RedrawClock();
 
@@ -152,7 +154,7 @@ void Stopwatch::OnLongClick(pebble::ClickInfo click_info, pebble::ButtonState st
     {
         case pebble::Button::Up:
         {
-            if (period_ == Period::Break && !prev_jam_countdown_.finished())
+            if (period_ == Period::Break && !prev_jam_countdown_.is_finished())
             {
                 jam_countdown_.set_remaining(prev_jam_countdown_.remaining());
                 SwitchPeriod(Period::Jam);
@@ -175,23 +177,24 @@ void Stopwatch::SwitchPeriod(Period new_period)
         {
             APP_LOG(APP_LOG_LEVEL_DEBUG, "Switch to JAM");
             jam_clock_layer_.SetTextColor(pebble::Color::Black());
-            prev_jam_clock_layer_.SetTextColor(pebble::Color::Clear());
+            prev_jam_clock_layer_.SetTextColor(pebble::Color::White());
             break_clock_layer_.SetTextColor(pebble::Color::LightGray());
 
-            prev_jam_countdown_.set_remaining(util::Duration::Zero());
-            break_countdown_.set_remaining(util::Duration::Zero());
+            prev_jam_countdown_.finish();
+            break_countdown_.finish();
             break;
         }
         case Period::Break:
         {
             APP_LOG(APP_LOG_LEVEL_DEBUG, "Switch to BREAK");
-            jam_clock_layer_.SetTextColor(pebble::Color(0b11101010));
-            prev_jam_clock_layer_.SetTextColor(pebble::Color::LightGray());
-            break_clock_layer_.SetTextColor(pebble::Color::Purple());
+            jam_clock_layer_.SetTextColor(pebble::Color::LightGray());
+            prev_jam_clock_layer_.SetTextColor(pebble::Color::Black());
+            break_clock_layer_.SetTextColor(pebble::Color::Black());
 
             prev_jam_countdown_.set_remaining(jam_countdown_.remaining());
             jam_countdown_.Reset();
             break_countdown_.Reset();
+            end_of_jam_vibration_.Clear();
             break;
         }
     }
@@ -203,48 +206,78 @@ void Stopwatch::SwitchPeriod(Period new_period)
 
 void Stopwatch::OnTick(const util::CalendarTimeRef& time, pebble::TimeUnitMask)
 {
+    bool need_redraw = !prev_jam_countdown_.is_finished();
     prev_jam_countdown_.decrement(util::Seconds(1));
 
-    if (paused_) return;
+    if (paused_)
+    {
+        if (need_redraw) RedrawClock();
+        return;
+    }
 
     switch (period_)
     {
         case Period::Jam:
         {
+            need_redraw = !jam_countdown_.is_finished();
             jam_countdown_.decrement(util::Seconds(1));
+
+            if (jam_countdown_.is_finished())
+            {
+                // Vibration call can take a while to return, so do it early
+                if (need_redraw)
+                {
+                    RedrawClock();
+                    need_redraw = false;
+                }
+
+                using namespace pebble::vibration;
+
+                if (end_of_jam_vibration_.is_none())
+                {
+                    end_of_jam_vibration_.GetOrEmplace().StartRepeatingSequence<10>(
+                        Pulse(util::Seconds(1)), Wait(util::Seconds(1))
+                    );
+                }
+            }
+
             break;
         }
         case Period::Break:
         {
+            need_redraw = true;
             break_countdown_.decrement(util::Seconds(1));
 
-            if (break_countdown_.finished())
+            if (break_countdown_.is_finished())
             {
                 jam_countdown_.Reset();
+                start_of_jam_vibration_.ShortPulse();
                 SwitchPeriod(Period::Jam);
+                need_redraw = false;
             }
             break;
         }
     }
 
-    RedrawClock();
+    if (need_redraw)
+    {
+        RedrawClock();
+    }
 }
 
 void Stopwatch::RedrawClock()
 {
-    jam_clock_layer_.SetText(jam_clock_string_.SetFromFormat(
+    jam_clock_layer_.SetFromFormat(
         "%u:%02u", jam_countdown_.remaining().minutes(), jam_countdown_.remaining().seconds()
-    ));
+    );
 
-    prev_jam_clock_layer_.SetText(prev_jam_clock_string_.SetFromFormat(
+    prev_jam_clock_layer_.SetFromFormat(
         "%u:%02u", prev_jam_countdown_.remaining().minutes(), prev_jam_countdown_.remaining().seconds()
-    ));
+    );
 
-    break_clock_layer_.SetText(break_clock_string_.SetFromFormat(
+    break_clock_layer_.SetFromFormat(
         "%u:%02u", break_countdown_.remaining().minutes(), break_countdown_.remaining().seconds()
-    ));
-
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "New clock text: %s", jam_clock_string_.c_str());
+    );
 }
 
 

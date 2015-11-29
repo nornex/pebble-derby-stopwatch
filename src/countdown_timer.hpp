@@ -26,7 +26,7 @@ public:
     TDuration max() const { return max_; }
     TDuration elapsed() const { return max() - remaining(); }
 
-    bool finished() const { return remaining().total_milliseconds() == 0; }
+    bool is_finished() const { return remaining().total_milliseconds() == 0; }
 
     void Reset()
     {
@@ -55,6 +55,11 @@ public:
         {
             remaining_ = duration;
         }
+    }
+
+    void finish()
+    {
+        set_remaining(util::Duration::Zero());
     }
 
 private:
