@@ -13,7 +13,6 @@ struct Stopwatch : pebble::WindowController<Stopwatch, pebble::ClickHandling::On
     pebble::TextLayerWithBuffer<8> break_clock_layer_;
     pebble::OnTickHandler<Stopwatch> tick_handler_;
 
-
     pebble::Vibration start_of_jam_vibration_;
     util::Optional<pebble::CustomVibration<20>> end_of_jam_vibration_;
 
@@ -25,8 +24,8 @@ struct Stopwatch : pebble::WindowController<Stopwatch, pebble::ClickHandling::On
 
     bool paused_ = true;
     Period period_ = Period::Break;
-    CountdownTimer jam_countdown_ = { util::Seconds(10) };
-    CountdownTimer prev_jam_countdown_ = { util::Seconds(10) };
+    CountdownTimer jam_countdown_ = { util::Minutes(2) };
+    CountdownTimer prev_jam_countdown_ = { util::Minutes(2) };
     CountdownTimer break_countdown_ = { util::Seconds(30) };
 
     Stopwatch(TWindow& window);
@@ -64,8 +63,8 @@ extern "C" int main(void)
 Stopwatch::Stopwatch(TWindow& window)
 :
     window_(window),
-    jam_clock_layer_(0, PBL_IF_ROUND_ELSE(40, 30), window.root_layer().width(), 50),
-    prev_jam_clock_layer_(0, PBL_IF_ROUND_ELSE(10, 5), window.root_layer().width(), 30),
+    jam_clock_layer_(0, 20, window.root_layer().width(), 50),
+    prev_jam_clock_layer_(0, 65, window.root_layer().width(), 30),
     break_clock_layer_(0, 100, window.root_layer().width(), 35),
     tick_handler_(pebble::TimeUnit::Second)
 {
@@ -74,7 +73,7 @@ Stopwatch::Stopwatch(TWindow& window)
     jam_clock_layer_.SetAlignment(pebble::Alignment::Center);
 
     prev_jam_clock_layer_.SetBackgroundColor(GColorClear);
-    prev_jam_clock_layer_.SetFont(pebble::Font(FONT_KEY_GOTHIC_14));
+    prev_jam_clock_layer_.SetFont(pebble::Font(FONT_KEY_GOTHIC_18));
     prev_jam_clock_layer_.SetAlignment(pebble::Alignment::Center);
 
     break_clock_layer_.SetBackgroundColor(GColorClear);
