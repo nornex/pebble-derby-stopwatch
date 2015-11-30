@@ -4,23 +4,28 @@
 #include "countdown_timer.hpp"
 #include "pebble-cpp/vibration.hpp"
 #include "pebble-cpp/text_layer.hpp"
+#include "pebble-cpp/graphics.hpp"
+
 
 struct Stopwatch : pebble::WindowController<Stopwatch, pebble::ClickHandling::On>
 {
+    enum class Period  { Jam, Break };
+
+    struct Background : public pebble::GraphicsLayer<Background>
+    {
+        Background(pebble::Rect& rect) : pebble::GraphicsLayer<Background>(*this, rect) {}
+        void OnGraphicsUpdate(pebble::Graphics& g);
+    };
+
     TWindow& window_;
+    Background background_;
     pebble::TextLayerWithBuffer<8> jam_clock_layer_;
-    pebble::TextLayerWithBuffer<8> prev_jam_clock_layer_;
+    pebble::TextLayerWithBuffer<16> prev_jam_clock_layer_;
     pebble::TextLayerWithBuffer<8> break_clock_layer_;
     pebble::OnTickHandler<Stopwatch> tick_handler_;
 
     pebble::Vibration start_of_jam_vibration_;
     util::Optional<pebble::CustomVibration<20>> end_of_jam_vibration_;
-
-    enum class Period
-    {
-        Jam,
-        Break
-    };
 
     bool paused_ = true;
     Period period_ = Period::Break;
@@ -63,9 +68,10 @@ extern "C" int main(void)
 Stopwatch::Stopwatch(TWindow& window)
 :
     window_(window),
-    jam_clock_layer_(0, 20, window.root_layer().width(), 50),
-    prev_jam_clock_layer_(0, 65, window.root_layer().width(), 30),
-    break_clock_layer_(0, 100, window.root_layer().width(), 35),
+    background_(window.root_layer()),
+    jam_clock_layer_(0, 22, window.root_layer().width(), 50),
+    prev_jam_clock_layer_(0, 63, window.root_layer().width(), 30),
+    break_clock_layer_(0, 116, window.root_layer().width(), 35),
     tick_handler_(pebble::TimeUnit::Second)
 {
     jam_clock_layer_.SetBackgroundColor(GColorClear);
@@ -87,6 +93,7 @@ Stopwatch::Stopwatch(TWindow& window)
 
     RedrawClock();
 
+    window.root_layer().AddChild(background_);
     window.root_layer().AddChild(jam_clock_layer_);
     window.root_layer().AddChild(prev_jam_clock_layer_);
     window.root_layer().AddChild(break_clock_layer_);
@@ -99,13 +106,9 @@ Stopwatch& Stopwatch::GetStatic()
 
 void Stopwatch::SetupClickHandlers(TClickHandlerSetup& setup)
 {
-    setup.SetupSingleClick(pebble::Button::Select);
-    setup.SetupLongClick(pebble::Button::Select);
-
     setup.SetupLongClick(pebble::Button::Up);
-
+    setup.SetupSingleClick(pebble::Button::Select);
     setup.SetupSingleClick(pebble::Button::Down);
-    setup.SetupLongClick(pebble::Button::Down);
 }
 
 void Stopwatch::OnSingleClick(pebble::ClickInfo click_info)
@@ -176,7 +179,7 @@ void Stopwatch::SwitchPeriod(Period new_period)
         {
             APP_LOG(APP_LOG_LEVEL_DEBUG, "Switch to JAM");
             jam_clock_layer_.SetTextColor(pebble::Color::Black());
-            prev_jam_clock_layer_.SetTextColor(pebble::Color::White());
+            prev_jam_clock_layer_.SetTextColor(pebble::Color::DarkGray());
             break_clock_layer_.SetTextColor(pebble::Color::LightGray());
 
             prev_jam_countdown_.finish();
@@ -210,7 +213,10 @@ void Stopwatch::OnTick(const util::CalendarTimeRef& time, pebble::TimeUnitMask)
 
     if (paused_)
     {
-        if (need_redraw) RedrawClock();
+        if (need_redraw)
+        {
+            RedrawClock();
+        }
         return;
     }
 
@@ -223,13 +229,6 @@ void Stopwatch::OnTick(const util::CalendarTimeRef& time, pebble::TimeUnitMask)
 
             if (jam_countdown_.is_finished())
             {
-                // Vibration call can take a while to return, so do it early
-                if (need_redraw)
-                {
-                    RedrawClock();
-                    need_redraw = false;
-                }
-
                 using namespace pebble::vibration;
 
                 if (end_of_jam_vibration_.is_none())
@@ -247,10 +246,14 @@ void Stopwatch::OnTick(const util::CalendarTimeRef& time, pebble::TimeUnitMask)
             need_redraw = true;
             break_countdown_.decrement(util::Seconds(1));
 
-            if (break_countdown_.is_finished())
+            if (break_countdown_.remaining() == util::Seconds(5))
+            {
+                start_of_jam_vibration_.ShortPulse();
+            }
+            else if (break_countdown_.is_finished())
             {
                 jam_countdown_.Reset();
-                start_of_jam_vibration_.ShortPulse();
+                start_of_jam_vibration_.LongPulse();
                 SwitchPeriod(Period::Jam);
                 need_redraw = false;
             }
@@ -270,13 +273,44 @@ void Stopwatch::RedrawClock()
         "%u:%02u", jam_countdown_.remaining().minutes(), jam_countdown_.remaining().seconds()
     );
 
-    prev_jam_clock_layer_.SetFromFormat(
-        "%u:%02u", prev_jam_countdown_.remaining().minutes(), prev_jam_countdown_.remaining().seconds()
-    );
+    if (period_ == Period::Jam || prev_jam_countdown_.is_finished())
+    {
+        prev_jam_clock_layer_.SetText("----");
+    }
+    else
+    {
+        prev_jam_clock_layer_.SetFromFormat(
+            "Previous: %u:%02u", prev_jam_countdown_.remaining().minutes(), prev_jam_countdown_.remaining().seconds()
+        );
+    }
 
     break_clock_layer_.SetFromFormat(
         "%u:%02u", break_countdown_.remaining().minutes(), break_countdown_.remaining().seconds()
     );
 }
 
+void Stopwatch::Background::OnGraphicsUpdate(pebble::Graphics& g)
+{
+    using namespace pebble;
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Draw it");
 
+    const Font font(FONT_KEY_GOTHIC_18_BOLD);
+
+    const Rect top_bar_bounds(0, 0, width(), 22);
+    const Rect top_bar_text_bounds(
+        top_bar_bounds.x()+ int16_t(3), top_bar_bounds.y() - int16_t(2),
+        top_bar_bounds.width(), top_bar_bounds.height()
+    );
+
+    const Rect middle_bar_bounds(0, height() / int16_t(2) + int16_t(5), width(), top_bar_bounds.height());
+    const Rect middle_text_bounds(
+        top_bar_text_bounds.x(), middle_bar_bounds.y() - int16_t(1),
+        middle_bar_bounds.width(), middle_bar_bounds.height()
+    );
+
+    g.DrawRectangleFilled(top_bar_bounds, Color::Black());
+    g.DrawText("Jam", top_bar_text_bounds, font, Color::White());
+
+    g.DrawRectangleFilled(middle_bar_bounds, Color::Black());
+    g.DrawText("Break", middle_text_bounds, font, Color::White());
+}

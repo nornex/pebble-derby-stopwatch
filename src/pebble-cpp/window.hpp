@@ -69,34 +69,34 @@ namespace pebble
 
             // Click handlers
 
-            static void SetupClickProviders(void* sdk_window)
+            static void SetupClickProviders(void* window_ptr)
             {
-                auto& window(FromSdkHandle(static_cast< ::Window* >(sdk_window)));
+                auto& window(*static_cast<Window*>(window_ptr));
                 TClickHandlerSetup setup;
                 window.controller().unsafe_get().SetupClickHandlers(setup);
             }
 
-            static void SingleClick(::ClickRecognizerRef ref, void* sdk_window)
+            static void SingleClick(::ClickRecognizerRef ref, void* window_ptr)
             {
-                auto& window(FromSdkHandle(static_cast< ::Window* >(sdk_window)));
+                auto& window(*static_cast<Window*>(window_ptr));
                 window.controller().unsafe_get().OnSingleClick(ClickInfo(ref));
             }
 
-            static void RepeatingClick(::ClickRecognizerRef ref, void* sdk_window)
+            static void RepeatingClick(::ClickRecognizerRef ref, void* window_ptr)
             {
-                auto& window(FromSdkHandle(static_cast< ::Window* >(sdk_window)));
+                auto& window(*static_cast<Window*>(window_ptr));
                 window.controller().unsafe_get().OnRepeatingClick(ClickInfo(ref));
             }
 
-            static void LongClickDown(::ClickRecognizerRef ref, void* sdk_window)
+            static void LongClickDown(::ClickRecognizerRef ref, void* window_ptr)
             {
-                auto& window(FromSdkHandle(static_cast< ::Window* >(sdk_window)));
+                auto& window(*static_cast<Window*>(window_ptr));
                 window.controller().unsafe_get().OnLongClick(ClickInfo(ref), ButtonState::Down);
             }
 
-            static void LongClickUp(::ClickRecognizerRef ref, void* sdk_window)
+            static void LongClickUp(::ClickRecognizerRef ref, void* window_ptr)
             {
-                auto& window(FromSdkHandle(static_cast< ::Window* >(sdk_window)));
+                auto& window(*static_cast<Window*>(window_ptr));
                 window.controller().unsafe_get().OnLongClick(ClickInfo(ref), ButtonState::Up);
             }
         };
@@ -104,17 +104,44 @@ namespace pebble
     public:
         typedef Window<TController, TClickHandling> TWindow;
 
+        class WindowLayer : public Rect
+        {
+        private:
+            friend class Window;
+
+            WindowLayer(::Layer* layer)
+                :
+                Rect(::layer_get_bounds(layer)),
+                layer_(layer)
+            {
+            }
+
+        public:
+            template <class TLayer>
+            void AddChild(TLayer& other_layer)
+            {
+                layer_add_child(layer_, other_layer.sdk_layer());
+            }
+
+        private:
+            ::Layer* layer_;
+        };
+
+
         /// Creates a new Pebble window
         Window()
         :
             window_(::window_create()),
-            handler_(window_)
+            handler_(window_),
+            layer_(::window_get_root_layer(window_))
         {
             ::window_set_user_data(window_, this);
 
             if (TClickHandling == ClickHandling::On)
             {
-                ::window_set_click_config_provider(window_, EventHandler::SetupClickProviders);
+                ::window_set_click_config_provider_with_context(
+                    window_, EventHandler::SetupClickProviders, this
+                );
             }
         }
 
@@ -125,14 +152,9 @@ namespace pebble
         }
 
         /// Get the base UI layer of this window.
-        Layer &root_layer()
+        WindowLayer& root_layer()
         {
-            if (layer_.is_none())
-            {
-                layer_.Emplace(window_get_root_layer(window_));
-            }
-
-            return layer_.unsafe_get();
+            return layer_;
         }
 
         /// Get the Pebble SDK's pointer for this object.
@@ -159,9 +181,9 @@ namespace pebble
 
         ::Window *window_;
 
-        util::Optional<Layer> layer_;
-
         EventHandler handler_;
+
+        WindowLayer layer_;
 
         friend TClickHandlerSetup;
     };

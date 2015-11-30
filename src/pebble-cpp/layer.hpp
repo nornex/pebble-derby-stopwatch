@@ -50,13 +50,47 @@ namespace pebble
         BottomLeft  = ::GAlignBottomLeft
     };
 
+    template <class TLayer>
+    class LayerBase : public Rect
+    {
+    protected:
+        inline
+        LayerBase(int16_t x, int16_t y, int16_t width, int16_t height)
+        :
+            Rect(x, y, width, height)
+        {
+        }
 
-    class BitmapLayer : public Rect
+        inline
+        LayerBase(Rect rect)
+        :
+            Rect(rect)
+        {
+        }
+
+    public:
+
+        void Show()
+        {
+            ::layer_set_hidden(subclass_sdk_layer(), false);
+        }
+
+        void Hide()
+        {
+            ::layer_set_hidden(subclass_sdk_layer(), false);
+        }
+
+    private:
+        ::Layer* subclass_sdk_layer() { return static_cast<TLayer*>(this)->sdk_layer(); }
+    };
+
+
+    class BitmapLayer : public LayerBase<BitmapLayer>
     {
     public:
         BitmapLayer(int16_t x, int16_t y, int16_t width, int16_t height)
         :
-            Rect(x, y, width, height),
+            LayerBase<BitmapLayer>(x, y, width, height),
             layer_(::bitmap_layer_create(bounds_))
         {
         }
@@ -89,25 +123,6 @@ namespace pebble
         ::BitmapLayer* layer_;
     };
 
-    class Layer : public Rect
-    {
-    public:
-        Layer(::Layer* layer)
-            :
-            Rect(::layer_get_bounds(layer)),
-            layer_(layer)
-        {
-        }
-
-        template <class TLayer>
-        void AddChild(TLayer& other_layer)
-        {
-            layer_add_child(layer_, other_layer.sdk_layer());
-        }
-
-    private:
-        ::Layer* layer_;
-    };
 
 }
 
